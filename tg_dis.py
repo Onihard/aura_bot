@@ -4,6 +4,12 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from discord.ext import commands
 import discord
+import ssl
+import certifi
+
+ssl_context = ssl.create_default_context(cafile=certifi.where())
+discord_bot = commands.Bot(command_prefix="!", intents=intents, ssl=ssl_context)
+
 
 # ------------------- Настройки -------------------
 TELEGRAM_TOKEN = "8047137767:AAELs_uYucqa0fbjbkAldIYXiPRubkeCWic"
@@ -105,3 +111,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
