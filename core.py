@@ -70,12 +70,12 @@ def create_or_update_user(user_id, login):
         existing = cursor.fetchone()
 
         if existing:
-            cursor.execute('UPDATE surveys SET login = ? WHERE user_id = ?', (login, user_id))
+            cursor.execute('UPDATE surveys SET login = ?, timestamp = CURRENT_TIMESTAMP WHERE user_id = ?', (login, user_id))
         else:
             cursor.execute('''
                 INSERT INTO surveys
                 (user_id, login, status, timestamp)
-                VALUES (?, ?, 'NEW', datetime('now'))
+                VALUES (?, ?, 'NEW', CURRENT_TIMESTAMP)
             ''', (user_id, login))
         conn.commit()
 
@@ -148,7 +148,7 @@ async def age_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE surveys
-            SET age = ?, timestamp = datetime('now')
+            SET age = ?, timestamp = CURRENT_TIMESTAMP
             WHERE user_id = ?
         ''', (age, user_id))
         conn.commit()
@@ -165,7 +165,7 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE surveys
-            SET location = ?, timestamp = datetime('now')
+            SET location = ?, timestamp = CURRENT_TIMESTAMP
             WHERE user_id = ?
         ''', (location, user_id))
         conn.commit()
@@ -182,7 +182,7 @@ async def experience_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE surveys
-            SET experience = ?, timestamp = datetime('now')
+            SET experience = ?, timestamp = CURRENT_TIMESTAMP
             WHERE user_id = ?
         ''', (experience, user_id))
         conn.commit()
@@ -205,7 +205,7 @@ async def rules_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE surveys
-            SET rules_agreement = ?, timestamp = datetime('now')
+            SET rules_agreement = ?, timestamp = CURRENT_TIMESTAMP
             WHERE user_id = ?
         ''', (rules_agreement, user_id))
         conn.commit()
@@ -217,7 +217,6 @@ async def join_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = update.message.from_user.id
     user_login = update.message.from_user.username or "Unknown"
     join_reason = update.message.text
-    timestamp = datetime.now().isoformat(timespec='seconds')
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -231,7 +230,7 @@ async def join_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 rules_agreement = ?,
                 join_reason = ?,
                 status = 'NEW',
-                timestamp = ?
+                timestamp = CURRENT_TIMESTAMP
             WHERE user_id = ?
         ''', (
             user_login,
@@ -240,7 +239,6 @@ async def join_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             context.user_data['experience'],
             context.user_data['rules_agreement'],
             join_reason,
-            timestamp,
             user_id
         ))
         conn.commit()
