@@ -8,7 +8,6 @@ load_dotenv()
 from telegram.ext import (
     Application,
     CommandHandler,
-@@ -9,34 +19,49 @@
     ConversationHandler,
     CallbackQueryHandler
 )
@@ -47,7 +46,7 @@ def init_db():
         conn.commit()
 
 def is_login_in_db(login):
-@@ -55,6 +80,10 @@ def get_application_status(login):
+def get_application_status(login):
 def is_application_rejected(login):
     return get_application_status(login) == 'REJECTED'
 
@@ -58,7 +57,7 @@ def is_application_rejected(login):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_login = update.message.from_user.username or "Unknown"
 
-@@ -67,251 +96,185 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     keyboard = [["Заполнить анкету", "Хочу прочесть FAQ"]]
@@ -75,7 +74,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def faq_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faq_text = (
-        "<b>Мы - конференция AURA и мы будем рады новым людям.</b>\n\n"
+        "<b>Мы - конференция Потрясная Курилка и мы будем рады новым людям.</b>\n\n"
         "<u><b>FAQ по чату:</b></u>\n\n"
         "<b>- Есть ли здесь место для меня?</b>\n"
         "Мы рады новым участникам, которые разделяют наши интересы и готовы общаться на равных. "
@@ -198,17 +197,6 @@ async def join_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
     return ConversationHandler.END
-
-
-
-
-
-
-
-
-
-
-
 
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
