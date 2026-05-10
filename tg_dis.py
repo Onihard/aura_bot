@@ -8,10 +8,7 @@ from discord.ext import commands
 import discord
 
 # ------------------- Настройки -------------------
-TELEGRAM_TOKEN = "8047137767:AAELs_uYucqa0fbjbkAldIYXiPRubkeCWic"
-TELEGRAM_CHAT_ID = -1001810100661
-DISCORD_TOKEN = "MTMwMzQ0OTkzMDk4MzI4MDcwMA.Gz1MBz.V4gjv7HjnkuBute_dJUuZ5Ob6B5XoYPFSR7_W8"
-UPDATE_INTERVAL = 10
+
 # -------------------------------------------------
 
 # ---------- Telegram bot ----------
