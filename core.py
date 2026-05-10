@@ -2,16 +2,18 @@ import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 import os
 from dotenv import load_dotenv
-
-load_dotenv()
-
 from telegram.ext import (
     Application,
     CommandHandler,
     ConversationHandler,
-    CallbackQueryHandler
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ContextTypes
 )
 from datetime import datetime
+
+load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 
@@ -46,20 +48,23 @@ def init_db():
         conn.commit()
 
 def is_login_in_db(login):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT 1 FROM surveys WHERE login = ?', (login,))
+        return cursor.fetchone() is not None
+
 def get_application_status(login):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT status FROM surveys WHERE login = ?', (login,))
+        result = cursor.fetchone()
+        return result[0] if result else None
+
 def is_application_rejected(login):
     return get_application_status(login) == 'REJECTED'
 
-
-
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_login = update.message.from_user.username or "Unknown"
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        return ConversationHandler.END
-
     keyboard = [["Заполнить анкету", "Хочу прочесть FAQ"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=False, resize_keyboard=True)
 
@@ -67,10 +72,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Привет! Спасибо за интерес к нашей конференции. Здесь можно заполнить анкету для вступления, это займет пару минут. Анкеты рассматриваются вручную в течение трех часов.',
         reply_markup=reply_markup
     )
-
-
-
-
 
 async def faq_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faq_text = (
@@ -99,11 +100,6 @@ async def faq_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Заполнить анкету", "Хочу прочесть FAQ"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=False, resize_keyboard=True)
     await update.message.reply_text(faq_text, reply_markup=reply_markup, parse_mode="HTML")
-
-
-
-
-
 
 async def fill_form(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_login = update.message.from_user.username or "Unknown"
@@ -144,21 +140,15 @@ async def rules_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Почему ты хочешь к нам присоединиться?')
     return JOIN_REASON
 
-
-
-
-
 async def join_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     join_reason = update.message.text
     user_login = update.message.from_user.username or "Unknown"
     timestamp = datetime.now().isoformat(timespec='seconds')
 
-
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO surveys (user_id, login, age, location, experience, rules_agreement, join_reason, status, timestamp)
-
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             update.message.from_user.id,
@@ -193,9 +183,6 @@ async def join_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
     await update.message.reply_text('Спасибо за заполнение анкеты! Мы ответим тебе в течение трёх часов.')
-
-
-
     return ConversationHandler.END
 
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -211,13 +198,10 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT COUNT(*) FROM surveys WHERE status = "NEW"')
-
         new_count = cursor.fetchone()[0]
         cursor.execute('SELECT COUNT(*) FROM surveys WHERE status = "REJECTED"')
-
         rejected_count = cursor.fetchone()[0]
         cursor.execute('SELECT COUNT(*) FROM surveys WHERE status = "APPROVED"')
-
         approved_count = cursor.fetchone()[0]
 
     keyboard = [
@@ -246,7 +230,6 @@ async def admin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if not applications:
             await query.edit_message_text("Заявок в этой категории нет.")
-            # Автоматически возвращаем в админ-меню
             await admin(update, context)
             return
 
@@ -265,7 +248,6 @@ async def admin_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if application:
             buttons = []
-            # Если заявка уже одобрена, то кнопка одобрения не показывается
             if application[8] != "APPROVED":
                 buttons.append([InlineKeyboardButton("Отправить ссылку на вступление", callback_data=f"approve_{app_id}")])
                 buttons.append([InlineKeyboardButton("Отказ", callback_data=f"reject_{app_id}")])
@@ -310,8 +292,6 @@ def main():
 
     conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.TEXT & filters.Regex('^Заполнить анкету$'), fill_form)],
-
-
         states={
             AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, age_handler)],
             LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, location_handler)],
@@ -332,5 +312,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-print("Бот запущен.")
