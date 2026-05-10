@@ -63,11 +63,29 @@ def get_application_status(login):
 def is_application_rejected(login):
     return get_application_status(login) == 'REJECTED'
 
+def create_or_update_user(user_id, login):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM surveys WHERE user_id = ?', (user_id,))
+        existing = cursor.fetchone()
+
+        if existing:
+            cursor.execute('UPDATE surveys SET login = ? WHERE user_id = ?', (login, user_id))
+        else:
+            cursor.execute('''
+                INSERT INTO surveys
+                (user_id, login, status, timestamp)
+                VALUES (?, ?, 'NEW', datetime('now'))
+            ''', (user_id, login))
+        conn.commit()
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
     user_login = update.message.from_user.username or "Unknown"
+    create_or_update_user(user_id, user_login)
+
     keyboard = [["Заполнить анкету", "Хочу прочесть FAQ"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=False, resize_keyboard=True)
-
     await update.message.reply_text(
         'Привет! Спасибо за интерес к нашей конференции. Здесь можно заполнить анкету для вступления, это займет пару минут. Анкеты рассматриваются вручную в течение трех часов.',
         reply_markup=reply_markup
@@ -103,29 +121,72 @@ async def faq_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def fill_form(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_login = update.message.from_user.username or "Unknown"
+    user_id = update.message.from_user.id
 
-    if is_login_in_db(user_login):
-        if is_application_rejected(user_login):
-            await update.message.reply_text('Ваша заявка была отклонена. Повторная подача невозможна.')
-        else:
-            await update.message.reply_text('Анкета уже заполнена.')
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT status FROM surveys WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
+        status = result[0] if result else None
+
+    if status == 'REJECTED':
+        await update.message.reply_text('Ваша заявка была отклонена. Повторная подача невозможна.')
+        return ConversationHandler.END
+    elif status == 'APPROVED':
+        await update.message.reply_text('Анкета уже заполнена.')
         return ConversationHandler.END
 
     await update.message.reply_text('Пожалуйста, введи свой возраст:', reply_markup=ReplyKeyboardRemove())
     return AGE
 
 async def age_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['age'] = update.message.text[:200]
+    user_id = update.message.from_user.id
+    age = update.message.text[:200]
+    context.user_data['age'] = age
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE surveys
+            SET age = ?, timestamp = datetime('now')
+            WHERE user_id = ?
+        ''', (age, user_id))
+        conn.commit()
+
     await update.message.reply_text('Откуда ты? Можно приблизительно.')
     return LOCATION
 
 async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['location'] = update.message.text[:200]
+    user_id = update.message.from_user.id
+    location = update.message.text[:200]
+    context.user_data['location'] = location
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE surveys
+            SET location = ?, timestamp = datetime('now')
+            WHERE user_id = ?
+        ''', (location, user_id))
+        conn.commit()
+
     await update.message.reply_text('Какой у тебя опыт участия в конференциях?')
     return EXPERIENCE
 
 async def experience_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['experience'] = update.message.text[:200]
+    user_id = update.message.from_user.id
+    experience = update.message.text[:200]
+    context.user_data['experience'] = experience
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE surveys
+            SET experience = ?, timestamp = datetime('now')
+            WHERE user_id = ?
+        ''', (experience, user_id))
+        conn.commit()
+
     await update.message.reply_text(
         'Это наши правила. Сможешь их не нарушать?\n\n'
         'К бану могут привести:\n- Нарушение порядка и комфорта участников.\n'
@@ -136,30 +197,51 @@ async def experience_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return RULES_AGREEMENT
 
 async def rules_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['rules_agreement'] = update.message.text[:200]
+    user_id = update.message.from_user.id
+    rules_agreement = update.message.text[:200]
+    context.user_data['rules_agreement'] = rules_agreement
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE surveys
+            SET rules_agreement = ?, timestamp = datetime('now')
+            WHERE user_id = ?
+        ''', (rules_agreement, user_id))
+        conn.commit()
+
     await update.message.reply_text('Почему ты хочешь к нам присоединиться?')
     return JOIN_REASON
 
 async def join_reason_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    join_reason = update.message.text
+    user_id = update.message.from_user.id
     user_login = update.message.from_user.username or "Unknown"
+    join_reason = update.message.text
     timestamp = datetime.now().isoformat(timespec='seconds')
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO surveys (user_id, login, age, location, experience, rules_agreement, join_reason, status, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            UPDATE surveys
+            SET
+                login = ?,
+                age = ?,
+                location = ?,
+                experience = ?,
+                rules_agreement = ?,
+                join_reason = ?,
+                status = 'NEW',
+                timestamp = ?
+            WHERE user_id = ?
         ''', (
-            update.message.from_user.id,
             user_login,
             context.user_data['age'],
             context.user_data['location'],
             context.user_data['experience'],
             context.user_data['rules_agreement'],
             join_reason,
-            'NEW',
-            timestamp
+            timestamp,
+            user_id
         ))
         conn.commit()
 
