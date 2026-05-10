@@ -109,7 +109,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def faq_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        "<b>FAQ AURA</b>\n\n"
+        "<b>FAQ Потрясной Курилки</b>\n\n"
         "Мы рады новым участникам.\n\n"
         "Бан без предупреждений.\n"
         "Есть боты для модерации и анализа сообщений.\n"
